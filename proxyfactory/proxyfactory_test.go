@@ -3,12 +3,13 @@ package proxyfactory_test
 import (
 	. "github.com/mikesimons/pacyak/proxyfactory"
 
+	"net"
+	"net/http"
+	"net/url"
+
+	"github.com/elazarl/goproxy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/elazarl/goproxy"
-	"net/url"
-	"net/http"
-	"net"
 )
 
 var _ = Describe("Proxyfactory", func() {
@@ -51,9 +52,9 @@ var _ = Describe("Proxyfactory", func() {
 		It("should return a direct proxy if response is DIRECT", func() {
 			factory := New()
 			proxy := factory.FromPacResponse("DIRECT")
-			var nilUrl *url.URL
+			var nilURL *url.URL
 			var nilDial func(string, string) (net.Conn, error)
-			Expect(proxy.Tr.Proxy(&http.Request{})).Should(Equal(nilUrl))
+			Expect(proxy.Tr.Proxy(&http.Request{})).Should(Equal(nilURL))
 			Expect(proxy.ConnectDial).Should(Equal(nilDial))
 		})
 

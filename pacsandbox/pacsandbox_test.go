@@ -18,7 +18,7 @@ var _ = Describe("PacSandbox", func() {
 		// should do what on syntax error?
 	})
 
-	Describe("ProxyFor", func(){
+	Describe("ProxyFor", func() {
 		It("should return a proxy for a url", func() {
 			it := New(`function FindProxyForURL(url, host) { return "DIRECT"; }`)
 			Expect(it.ProxyFor("http://google.com")).Should(Equal("DIRECT"))
