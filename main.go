@@ -6,14 +6,34 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/mikesimons/earl"
 )
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:8080", "Proxy listen address")
-	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <url-to-pac-file>\n", os.Args[0])
+	opts := &PacYakOpts{}
+	flag.StringVar(&opts.ListenAddr, "addr", "127.0.0.1:8080", "Proxy listen address")
+	flag.StringVar(&opts.ICMPCheckHost, "icmphost", "", "Availability check host (ICMP)")
+	flag.StringVar(&opts.PacProxy, "pacproxy", "", "Proxy for fetching PAC file")
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) < 1 {
+		fmt.Printf("Usage: pacyak <pac-file>\n")
 		os.Exit(1)
 	}
-	app := NewPacYakApp(os.Args[1], *addr)
-	log.Fatal(http.ListenAndServe(*addr, app))
+
+	opts.PacFile = args[0]
+
+	url := earl.Parse(opts.ICMPCheckHost)
+	if url.Host == "" {
+		fmt.Printf("Invalid ICMP check host: %s", opts.ICMPCheckHost)
+		os.Exit(1)
+	}
+
+	opts.ICMPCheckHost = url.Host
+
+	app := NewPacYakApp(opts)
+	log.Fatal(http.ListenAndServe(opts.ListenAddr, app))
 }

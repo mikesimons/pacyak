@@ -14,32 +14,24 @@ import (
 	"github.com/mikesimons/readly"
 )
 
+// PacYakOpts holds runtime config options for PacYakApplication
+type PacYakOpts struct {
+	ICMPCheckHost string
+	PacFile       string
+	ListenAddr    string
+	PacProxy      string
+}
+
 // PacYakApplication holds all application state
 type PacYakApplication struct {
-	pacURL        *earl.URL
+	opts          *PacYakOpts
+	pacFile       *earl.URL
 	directSandbox *pacsandbox.PacSandbox
 	factory       *proxyfactory.ProxyFactory
 	sandbox       *pacsandbox.PacSandbox
 	listenAddr    string
 	Logger        *log.Logger
-}
-
-func loadPac(file string) (string, error) {
-	readly.SetClient(&http.Client{
-		Transport: &http.Transport{
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				return nil, nil
-			},
-		},
-	})
-
-	r, err := readly.Read(file)
-
-	if err != nil {
-		return "", err
-	}
-
-	return r, nil
+	Reader        *readly.Reader
 }
 
 func (app *PacYakApplication) switchToDirect() {
@@ -52,7 +44,7 @@ func (app *PacYakApplication) switchToDirect() {
 
 func (app *PacYakApplication) switchToPac() {
 	if app.sandbox == app.directSandbox {
-		pac, err := loadPac(app.pacURL.ToNetURL().String())
+		pac, err := app.Reader.Read(app.pacFile.Input)
 		if err != nil {
 			app.Logger.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
 		} else {
@@ -64,8 +56,8 @@ func (app *PacYakApplication) switchToPac() {
 }
 
 func (app *PacYakApplication) handlePacAvailability() {
-	available := exec.Command("ping", "-w", "1", app.pacURL.Host).Run() == nil
-	app.Logger.WithFields(log.Fields{"available": available}).Info("PAC URL check")
+	available := exec.Command("ping", "-w", "1", app.opts.ICMPCheckHost).Run() == nil
+	app.Logger.WithFields(log.Fields{"available": available}).Info("PAC availability check")
 
 	if !available {
 		app.switchToDirect()
@@ -84,20 +76,36 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 }
 
 // NewPacYakApp will create a new PacYakApplication instance
-func NewPacYakApp(pacURLStr string, listenAddr string) *PacYakApplication {
-	// TODO Support local PAC files w/ external check URL
+func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 	logger := log.New()
 
 	directSandbox := pacsandbox.New(`function FindProxyForURL(url, host) { return "DIRECT"; }`)
 	directSandbox.Logger = logger
 
+	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
+	// pacyak listen addr is expected to be set as HTTP_PROXY / HTTPS_PROXY but it isn't started yet!
+	reader := readly.New()
+	reader.Client = &http.Client{
+		Transport: &http.Transport{
+			Proxy: func(req *http.Request) (*url.URL, error) {
+				if opts.PacProxy != "" {
+					return url.Parse(opts.PacProxy)
+				}
+
+				return nil, nil
+			},
+		},
+	}
+
 	application := &PacYakApplication{
-		pacURL:        earl.Parse(pacURLStr),
+		opts:          opts,
+		pacFile:       earl.Parse(opts.PacFile),
 		factory:       proxyfactory.New(),
 		sandbox:       directSandbox,
 		directSandbox: directSandbox,
-		listenAddr:    listenAddr,
+		listenAddr:    opts.ListenAddr,
 		Logger:        logger,
+		Reader:        reader,
 	}
 
 	log.SetLevel(log.InfoLevel)
