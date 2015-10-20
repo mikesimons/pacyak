@@ -9,7 +9,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/elazarl/goproxy"
+	"github.com/gallir/goproxy"
 	"github.com/mikesimons/earl"
 )
 
@@ -80,6 +80,8 @@ func (pf *ProxyFactory) Proxy(handle string) *goproxy.ProxyHttpServer {
 		} else {
 			proxy.ConnectDial = proxy.NewConnectDialToProxy(proxyURL.ToNetURL().String())
 		}
+
+		proxy.Verbose = true
 
 		pf.availabilityChecks[handle] = func() bool {
 			if handle == "direct" {

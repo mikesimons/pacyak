@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -22,13 +23,23 @@ type PacYakOpts struct {
 	PacProxy      string
 }
 
+type pacInterpreter interface {
+	ProxyFor(string) (string, error)
+	Reset() // HACK
+}
+
+type directPac struct{}
+
+func (p *directPac) ProxyFor(s string) (string, error) { return "DIRECT", nil }
+func (p *directPac) Reset()                            {}
+
 // PacYakApplication holds all application state
 type PacYakApplication struct {
 	opts          *PacYakOpts
 	pacFile       *earl.URL
-	directSandbox *pacsandbox.PacSandbox
+	directSandbox pacInterpreter
 	factory       *proxyfactory.ProxyFactory
-	sandbox       *pacsandbox.PacSandbox
+	sandbox       pacInterpreter
 	listenAddr    string
 	Logger        *log.Logger
 	Reader        *readly.Reader
@@ -38,7 +49,7 @@ func (app *PacYakApplication) switchToDirect() {
 	if app.sandbox != app.directSandbox {
 		app.Logger.Info("PAC availability check failed; switching to direct")
 		app.sandbox = app.directSandbox
-		app.sandbox.PurgeCache()
+		app.sandbox.Reset()
 	}
 }
 
@@ -49,8 +60,9 @@ func (app *PacYakApplication) switchToPac() {
 			app.Logger.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
 		} else {
 			app.Logger.Info("PAC availability check passed; switching from direct")
-			app.sandbox = pacsandbox.New(pac)
-			app.sandbox.Logger = app.Logger
+			sandbox := pacsandbox.New(pac)
+			sandbox.Logger = app.Logger
+			app.sandbox = sandbox
 		}
 	}
 }
@@ -79,9 +91,6 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 	logger := log.New()
 
-	directSandbox := pacsandbox.New(`function FindProxyForURL(url, host) { return "DIRECT"; }`)
-	directSandbox.Logger = logger
-
 	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
 	// pacyak listen addr is expected to be set as HTTP_PROXY / HTTPS_PROXY but it isn't started yet!
 	reader := readly.New()
@@ -101,8 +110,8 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 		opts:          opts,
 		pacFile:       earl.Parse(opts.PacFile),
 		factory:       proxyfactory.New(),
-		sandbox:       directSandbox,
-		directSandbox: directSandbox,
+		sandbox:       &directPac{},
+		directSandbox: &directPac{},
 		listenAddr:    opts.ListenAddr,
 		Logger:        logger,
 		Reader:        reader,
@@ -127,6 +136,8 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
+	pacResponse = strings.Replace(pacResponse, "austin", "sdc", 1)
+	pacResponse = strings.Replace(pacResponse, "houston", "sdc", 1)
 
 	if err != nil {
 		app.Logger.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")

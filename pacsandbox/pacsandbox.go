@@ -27,7 +27,7 @@ func New(pac string) *PacSandbox {
 		Logger: log.New(),
 	}
 
-	sandbox.PurgeCache()
+	sandbox.Reset()
 	sandbox.initPacFunctions()
 	sandbox.vm.Run(pac)
 
@@ -63,7 +63,7 @@ func (p *PacSandbox) ProxyFor(u string) (string, error) {
 }
 
 // PurgeCache will (re)initialize internal caches
-func (p *PacSandbox) PurgeCache() {
+func (p *PacSandbox) Reset() {
 	p.cache = ttlcache.NewCache(5 * time.Minute)
 	p.resultCache = ttlcache.NewCache(30 * time.Second)
 }
