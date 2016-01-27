@@ -9,7 +9,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gallir/goproxy"
+	"github.com/mikesimons/goproxy"
 	"github.com/mikesimons/earl"
 )
 
