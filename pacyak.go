@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
-	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -136,8 +135,6 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
-	pacResponse = strings.Replace(pacResponse, "austin", "sdc", 1)
-	pacResponse = strings.Replace(pacResponse, "houston", "sdc", 1)
 
 	if err != nil {
 		app.Logger.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")
