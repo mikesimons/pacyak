@@ -15,7 +15,7 @@ func main() {
 	opts := &PacYakOpts{}
 
 	flag.StringVar(&opts.ListenAddr, "addr", "127.0.0.1:8080", "Proxy listen address")
-	flag.StringVar(&opts.ICMPCheckHost, "icmphost", "", "Availability check host (ICMP)")
+	flag.StringVar(&opts.ICMPCheckHost, "pinghost", "", "Availability check host")
 	flag.StringVar(&opts.PacProxy, "pacproxy", "", "Proxy for fetching PAC file")
 	flag.StringVar(&opts.LogLevelStr, "loglevel", "info", "Log level: debug, info, warn, error")
 	flag.Parse()
@@ -38,8 +38,11 @@ func main() {
 
 	url := earl.Parse(opts.ICMPCheckHost)
 	if url.Host == "" {
-		fmt.Printf("Invalid ICMP check host: %s", opts.ICMPCheckHost)
-		os.Exit(1)
+		url = earl.Parse(opts.PacFile)
+		if url.Host == "" {
+			fmt.Printf("-pinghost is required if pac-file is not a URL")
+			os.Exit(1)
+		}
 	}
 
 	opts.ICMPCheckHost = url.Host
