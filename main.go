@@ -7,15 +7,25 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mikesimons/earl"
 )
 
 func main() {
 	opts := &PacYakOpts{}
+
 	flag.StringVar(&opts.ListenAddr, "addr", "127.0.0.1:8080", "Proxy listen address")
 	flag.StringVar(&opts.ICMPCheckHost, "icmphost", "", "Availability check host (ICMP)")
 	flag.StringVar(&opts.PacProxy, "pacproxy", "", "Proxy for fetching PAC file")
+	flag.StringVar(&opts.LogLevelStr, "loglevel", "info", "Log level: debug, info, warn, error")
 	flag.Parse()
+
+	tmp, err := logrus.ParseLevel(opts.LogLevelStr)
+	if err != nil {
+		fmt.Printf("Invalid log level '%s'. Valid levels are: debug, info, warn, error")
+		os.Exit(1)
+	}
+	opts.LogLevel = tmp
 
 	args := flag.Args()
 

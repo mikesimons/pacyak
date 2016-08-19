@@ -20,6 +20,8 @@ type PacYakOpts struct {
 	PacFile       string
 	ListenAddr    string
 	PacProxy      string
+	LogLevelStr   string
+	LogLevel      log.Level
 }
 
 type pacInterpreter interface {
@@ -89,6 +91,7 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 // NewPacYakApp will create a new PacYakApplication instance
 func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 	logger := log.New()
+	log.SetLevel(opts.LogLevel)
 
 	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
 	// pacyak listen addr is expected to be set as HTTP_PROXY / HTTPS_PROXY but it isn't started yet!
@@ -116,7 +119,6 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 		Reader:        reader,
 	}
 
-	log.SetLevel(log.InfoLevel)
 
 	application.startAvailabilityChecks()
 
