@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -24,11 +25,13 @@ type PacYakOpts struct {
 	LogLevel      log.Level
 }
 
+// pacInterpreter is a simple interface we use to provide a dummy implementation of pacsandbox for directPac
 type pacInterpreter interface {
 	ProxyFor(string) (string, error)
 	Reset() // HACK
 }
 
+// directPac is a dummy implementation of pacsandbox to avoid invoking JS to return a constant static string ("DIRECT")
 type directPac struct{}
 
 func (p *directPac) ProxyFor(s string) (string, error) { return "DIRECT", nil }
@@ -42,9 +45,13 @@ type PacYakApplication struct {
 	factory       *proxyfactory.ProxyFactory
 	sandbox       pacInterpreter
 	listenAddr    string
+	interfaceMap  map[string]string
+	checkMutex    *sync.Mutex
+	sandboxMutex  *sync.Mutex
 	Reader        *readly.Reader
 }
 
+// Run is the entry point for pacyak. It will initialize pacyak and start listening.
 func Run(opts *PacYakOpts) {
 
 	log.SetLevel(opts.LogLevel)
@@ -77,15 +84,18 @@ func Run(opts *PacYakOpts) {
 		sandbox:       &directPac{},
 		directSandbox: &directPac{},
 		listenAddr:    opts.ListenAddr,
+		checkMutex:    &sync.Mutex{},
 		Reader:        reader,
 	}
 
-	app.startAvailabilityChecks()
+	go app.monitorPingAvailability()
+	go app.monitorNetworkInterfaces()
 
 	// FIXME - graceful handler; server 502 on error and keep going
 	log.Fatal(http.ListenAndServe(app.opts.ListenAddr, app))
 }
 
+// ServeHTTP handles directing the request to the correct proxy
 func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.WithFields(log.Fields{
 		"method": r.Method,
@@ -98,7 +108,9 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	//	return
 	//}
 
+	app.checkMutex.Lock()
 	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
+	app.checkMutex.Unlock()
 
 	if err != nil {
 		log.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")
@@ -111,6 +123,8 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	proxy.ServeHTTP(w, r)
 }
 
+// switchToDirect switches the pac sandbox to the dummy "DIRECT" implementation
+// We do this when our ping check fails (indicating a proxy may no longer be required)
 func (app *PacYakApplication) switchToDirect() {
 	if app.sandbox != app.directSandbox {
 		log.Info("PAC availability check failed; switching to direct")
@@ -119,6 +133,8 @@ func (app *PacYakApplication) switchToDirect() {
 	}
 }
 
+// switchToPac switches the pac sandbox to the JS implementation (using the PAC file specified on the CLI)
+// We do this when our ping check passes (indicating we're in an env that requires a proxy)
 func (app *PacYakApplication) switchToPac() {
 	if app.sandbox == app.directSandbox {
 		pac, err := app.Reader.Read(app.pacFile.Input)
@@ -132,7 +148,13 @@ func (app *PacYakApplication) switchToPac() {
 	}
 }
 
+// handlePacAvailability updates the status of the ping check and switches sandbox if required
+// This may be called from multiple go routines so we wrap it in a mutex to avoid racing
+// Tried this with channels once but CPU usage blew up! Probably PEBKAC
 func (app *PacYakApplication) handlePacAvailability() {
+	app.checkMutex.Lock()
+	defer func() { app.checkMutex.Unlock() }()
+
 	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
 	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
 
@@ -143,11 +165,47 @@ func (app *PacYakApplication) handlePacAvailability() {
 	}
 }
 
-func (app *PacYakApplication) startAvailabilityChecks() {
+// monitorPingAvailability is a wrapper for handlePacAvailability invoking it every 30 seconds
+func (app *PacYakApplication) monitorPingAvailability() {
 	app.handlePacAvailability()
-	go func() {
-		for _ = range time.Tick(30 * time.Second) {
-			app.handlePacAvailability()
-		}
+	for _ = range time.Tick(30 * time.Second) {
+		app.handlePacAvailability()
+	}
+}
+
+// checkNetworkInterfaces will trigger a ping check if network interfaces have changed since last check
+func (app *PacYakApplication) checkNetworkInterfaces() {
+	interfaceMap := makeInterfaceMap()
+	lastInterfaceMap := app.interfaceMap
+
+	defer func() {
+		app.interfaceMap = interfaceMap
 	}()
+
+	newInterfaces := interfaceMapKeys(interfaceMap)
+	oldInterfaces := interfaceMapKeys(lastInterfaceMap)
+
+	if interfaceListChanged(newInterfaces, oldInterfaces) {
+		log.WithFields(log.Fields{"old": oldInterfaces, "new": newInterfaces}).Debug("Network interface list has changed")
+		app.handlePacAvailability()
+		return
+	}
+
+	for key, val := range interfaceMap {
+		if lastInterfaceMap[key] != val {
+			log.WithFields(log.Fields{"interface": key, "old": lastInterfaceMap[key], "new": val}).Debug("Network interface configuration has changed")
+			app.handlePacAvailability()
+			return
+		}
+	}
+
+	log.Debug("No network changes detected")
+}
+
+// monitorNetworkInterfaces is a wrapper for checkNetworkInterfaces invoking it every 5 seconds
+func (app *PacYakApplication) monitorNetworkInterfaces() {
+	app.interfaceMap = makeInterfaceMap()
+	for _ = range time.Tick(5 * time.Second) {
+		app.checkNetworkInterfaces()
+	}
 }
