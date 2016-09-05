@@ -1,0 +1,61 @@
+{
+	"ImportPath": "github.com/mikesimons/pacyak",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.10.0-21-g32055c3",
+			"Rev": "32055c351ea8b00b96d70f28db48d9840feaf0ec"
+		},
+		{
+			"ImportPath": "github.com/mikesimons/earl",
+			"Rev": "70c906f76b9a48aa500386758dc3d8304e22f175"
+		},
+		{
+			"ImportPath": "github.com/mikesimons/readly",
+			"Rev": "f72a8aa7f3298d87762dd4cccbf4669f9f66edb6"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/ast",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/dbg",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/file",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/parser",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/registry",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/token",
+			"Rev": "47082f430885e505c18bbedc3e2b336a968a50dd"
+		},
+		{
+			"ImportPath": "github.com/wunderlist/ttlcache",
+			"Rev": "fa8f18d5e019f6bdf076153e60dccf2c6fc7ccf5"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "5eaf0df67e70d6997a9fe0ed24383fa1b01638d3"
+		},
+		{
+			"ImportPath": "gopkg.in/urfave/cli.v1",
+			"Comment": "v1.18.1",
+			"Rev": "a14d7d367bc02b1f57d88de97926727f2d936387"
+		}
+	]
+}
