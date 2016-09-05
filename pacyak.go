@@ -45,47 +45,6 @@ type PacYakApplication struct {
 	Reader        *readly.Reader
 }
 
-func (app *PacYakApplication) switchToDirect() {
-	if app.sandbox != app.directSandbox {
-		log.Info("PAC availability check failed; switching to direct")
-		app.sandbox = app.directSandbox
-		app.sandbox.Reset()
-	}
-}
-
-func (app *PacYakApplication) switchToPac() {
-	if app.sandbox == app.directSandbox {
-		pac, err := app.Reader.Read(app.pacFile.Input)
-		if err != nil {
-			log.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
-		} else {
-			log.Info("PAC availability check passed; switching from direct")
-			sandbox := pacsandbox.New(pac)
-			app.sandbox = sandbox
-		}
-	}
-}
-
-func (app *PacYakApplication) handlePacAvailability() {
-	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
-	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
-
-	if !available {
-		app.switchToDirect()
-	} else {
-		app.switchToPac()
-	}
-}
-
-func (app *PacYakApplication) startAvailabilityChecks() {
-	app.handlePacAvailability()
-	go func() {
-		for _ = range time.Tick(30 * time.Second) {
-			app.handlePacAvailability()
-		}
-	}()
-}
-
 func Run(opts *PacYakOpts) {
 
 	log.SetLevel(opts.LogLevel)
@@ -150,4 +109,45 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	proxy := app.factory.FromPacResponse(pacResponse)
 
 	proxy.ServeHTTP(w, r)
+}
+
+func (app *PacYakApplication) switchToDirect() {
+	if app.sandbox != app.directSandbox {
+		log.Info("PAC availability check failed; switching to direct")
+		app.sandbox = app.directSandbox
+		app.sandbox.Reset()
+	}
+}
+
+func (app *PacYakApplication) switchToPac() {
+	if app.sandbox == app.directSandbox {
+		pac, err := app.Reader.Read(app.pacFile.Input)
+		if err != nil {
+			log.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
+		} else {
+			log.Info("PAC availability check passed; switching from direct")
+			sandbox := pacsandbox.New(pac)
+			app.sandbox = sandbox
+		}
+	}
+}
+
+func (app *PacYakApplication) handlePacAvailability() {
+	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
+	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
+
+	if !available {
+		app.switchToDirect()
+	} else {
+		app.switchToPac()
+	}
+}
+
+func (app *PacYakApplication) startAvailabilityChecks() {
+	app.handlePacAvailability()
+	go func() {
+		for _ = range time.Tick(30 * time.Second) {
+			app.handlePacAvailability()
+		}
+	}()
 }
