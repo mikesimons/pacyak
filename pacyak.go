@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -90,9 +90,11 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 	log.SetLevel(opts.LogLevel)
 
+	reader := readly.New()
+
 	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
 	// pacyak listen addr is expected to be set as HTTP_PROXY / HTTPS_PROXY but it isn't started yet!
-	reader := readly.New()
+	// This level of control also means a lib like hashicorp/go-getter is not suitable :(
 	reader.Client = &http.Client{
 		Transport: &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
@@ -102,6 +104,11 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 
 				return nil, nil
 			},
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 5 * time.Second,
+			}).DialContext,
+			IdleConnTimeout: 5 * time.Second,
 		},
 	}
 

@@ -1,43 +1,34 @@
 package proxyfactory
 
 import (
-	"crypto/tls"
-	"net/http"
-	"net/url"
-	"os/exec"
 	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/mikesimons/goproxy"
-	"github.com/mikesimons/earl"
+	"github.com/mikesimons/pacyak/proxy"
 )
 
 // ProxyFactory holds all state for the proxy factory
 type ProxyFactory struct {
-	proxies            map[string]*goproxy.ProxyHttpServer
-	availabilityChecks map[string](func() bool)
-	availability       map[string]bool
-	Logger             *log.Logger
+	proxies      map[string]*proxy.Proxy
+	availability map[string]bool
 }
 
 // New is the constructor function for ProxyFactory
 func New() *ProxyFactory {
 	pf := &ProxyFactory{
-		proxies:            make(map[string]*goproxy.ProxyHttpServer),
-		availabilityChecks: make(map[string](func() bool)),
-		availability:       make(map[string]bool),
-		Logger:             log.New(),
+		proxies:      make(map[string]*proxy.Proxy),
+		availability: make(map[string]bool),
 	}
 
 	go func() {
 		for _ = range time.Tick(30 * time.Second) {
-			for key, check := range pf.availabilityChecks {
-				pf.availability[key] = check()
-				pf.Logger.WithFields(log.Fields{
+			for key, proxy := range pf.proxies {
+				pf.availability[key] = proxy.Available()
+				log.WithFields(log.Fields{
 					"proxy":     key,
 					"available": pf.availability[key],
-				}).Info("Proxy availability check")
+				}).Debug("Proxy availability check")
 			}
 		}
 	}()
@@ -53,55 +44,21 @@ func (pf *ProxyFactory) available(handle string) bool {
 	return pf.availability[handle]
 }
 
-// Proxy will return an instance of a goproxy based on the handle
+// Proxy will return an instance of a proxy based on the handle
 // If one already exists with the given handle, it will be used.
 // Otherwise a new one will be created.
-func (pf *ProxyFactory) Proxy(handle string) *goproxy.ProxyHttpServer {
+func (pf *ProxyFactory) Proxy(handle string) *proxy.Proxy {
 	if _, ok := pf.proxies[handle]; !ok {
-		proxyURL := earl.Parse(handle)
-		if proxyURL.Scheme == "" {
-			proxyURL.Scheme = "http"
-		}
-
-		proxy := goproxy.NewProxyHttpServer()
-		proxy.Tr = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				if handle == "direct" {
-					return nil, nil
-				}
-
-				return proxyURL.ToNetURL(), nil
-			},
-		}
-
-		if handle == "direct" {
-			proxy.ConnectDial = nil
-		} else {
-			proxy.ConnectDial = proxy.NewConnectDialToProxy(proxyURL.ToNetURL().String())
-		}
-
-		proxy.Verbose = true
-
-		pf.availabilityChecks[handle] = func() bool {
-			if handle == "direct" {
-				return true
-			}
-
-			return exec.Command("ping", "-w", "1", proxyURL.Host).Run() == nil
-		}
-
-		//proxy.Logger = pf.Logger
-
-		pf.availability[handle] = pf.availabilityChecks[handle]()
+		proxy := proxy.New(handle)
+		pf.availability[handle] = proxy.Available()
 		pf.proxies[handle] = proxy
 	}
 
 	return pf.proxies[handle]
 }
 
-// FromPacResponse takes a PAC response string and returns a goproxy
-func (pf *ProxyFactory) FromPacResponse(response string) *goproxy.ProxyHttpServer {
+// FromPacResponse takes a PAC response string and returns a proxy
+func (pf *ProxyFactory) FromPacResponse(response string) *proxy.Proxy {
 	if response == "DIRECT" {
 		return pf.Proxy("direct")
 	}
