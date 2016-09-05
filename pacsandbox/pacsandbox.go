@@ -62,7 +62,7 @@ func (p *PacSandbox) ProxyFor(u string) (string, error) {
 	return result, err
 }
 
-// PurgeCache will (re)initialize internal caches
+// Reset will (re)initialize internal caches
 func (p *PacSandbox) Reset() {
 	p.cache = ttlcache.NewCache(5 * time.Minute)
 	p.resultCache = ttlcache.NewCache(30 * time.Second)
