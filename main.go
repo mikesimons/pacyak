@@ -15,7 +15,7 @@ func main() {
 	opts := &PacYakOpts{}
 
 	flag.StringVar(&opts.ListenAddr, "addr", "127.0.0.1:8080", "Proxy listen address")
-	flag.StringVar(&opts.ICMPCheckHost, "pinghost", "", "Availability check host")
+	flag.StringVar(&opts.PingCheckHost, "pinghost", "", "Availability check host")
 	flag.StringVar(&opts.PacProxy, "pacproxy", "", "Proxy for fetching PAC file")
 	flag.StringVar(&opts.LogLevelStr, "loglevel", "info", "Log level: debug, info, warn, error")
 	flag.Parse()
@@ -36,7 +36,7 @@ func main() {
 
 	opts.PacFile = args[0]
 
-	url := earl.Parse(opts.ICMPCheckHost)
+	url := earl.Parse(opts.PingCheckHost)
 	if url.Host == "" {
 		url = earl.Parse(opts.PacFile)
 		if url.Host == "" {
@@ -45,7 +45,7 @@ func main() {
 		}
 	}
 
-	opts.ICMPCheckHost = url.Host
+	opts.PingCheckHost = url.Host
 
 	app := NewPacYakApp(opts)
 	log.Fatal(http.ListenAndServe(opts.ListenAddr, app))

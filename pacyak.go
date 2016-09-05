@@ -16,7 +16,7 @@ import (
 
 // PacYakOpts holds runtime config options for PacYakApplication
 type PacYakOpts struct {
-	ICMPCheckHost string
+	PingCheckHost string
 	PacFile       string
 	ListenAddr    string
 	PacProxy      string
@@ -69,7 +69,7 @@ func (app *PacYakApplication) switchToPac() {
 }
 
 func (app *PacYakApplication) handlePacAvailability() {
-	available := exec.Command("ping", "-w", "1", app.opts.ICMPCheckHost).Run() == nil
+	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
 	app.Logger.WithFields(log.Fields{"available": available}).Info("PAC availability check")
 
 	if !available {
