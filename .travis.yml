@@ -1,0 +1,16 @@
+language: go
+go:
+  - 1.7
+deploy:
+  provider: releases
+  api_key: "$GITHUB_AUTH"
+  file: 
+    - "pacyak-${TRAVIS_TAG}-linux-amd64"
+    - "pacyak-${TRAVIS_TAG}-darwin-amd64"
+    - "pacyak-${TRAVIS_TAG}-windows-amd64"
+  skip_cleanup: true
+  on:
+    tags: true
+env:
+  global:
+    secure: Lvz7Pc+X77JnP3HaZ3Vg7rHHKnql1qm1hjG/8cnOqslTiyvljjw2cl0mzSDT8opEkY4NBFoiKPtxqKmOCKuWetYxrHIbmnATPg0EzFoq+uEdDB4UdttpAiwvOWJCQ2mLIzhsheiUEdO/ipmZppUhrm3F9tCNrvS8sTNVIGTIlTV69hFgwjmnXjbNl8x3U9gKV3+2ctZ3RnAFzRroSdcPHYzrkSdlH2/YkBWbNYoP7RU1OLMiU9noan1hHJ18KZYtyC/KAXEoUjE2vGgg6U/n0lL/mHsl85G68HIZH7cgXruxf1eyFN4ggl3NQomXpS952u1VmLvzyzzzzJnW7Q4n9NGiInVsa0BpTOf1DdjvaO2iUe4rVKOe/R2rjGWM/RxwZM/KsamqCGP3i8DWvZTr3rshqT95NYcZm0XEP6vcx8DHpo8T8TsO+nBberGfdRXNc0vMdmkJBf6zHdKyN5kXjY2ZCFpFqUHqpYD9pxjkC47V4A40+k0mj2qGZbAB3UETlhmJhBgsrhdpcNNHCVZ77zijKHMCaa4TzpzOGQJEZDHjc52NX6D8AikLnRZcbRUHOX+rDTDCtwx0Jhjk7C3lrGAqCV9rhhPDq3D9jsrIds5ZpJGhkpRxCFH9ZSirl6YD+AhueGUabUltp8Tp9D77s3kcNd1eK5CBBXmrOQbzQlc=
