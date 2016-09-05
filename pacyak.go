@@ -86,10 +86,9 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 	}()
 }
 
-// NewPacYakApp will create a new PacYakApplication instance
-func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
-	log.SetLevel(opts.LogLevel)
+func Run(opts *PacYakOpts) {
 
+	log.SetLevel(opts.LogLevel)
 	reader := readly.New()
 
 	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
@@ -112,7 +111,7 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 		},
 	}
 
-	application := &PacYakApplication{
+	app := &PacYakApplication{
 		opts:          opts,
 		pacFile:       earl.Parse(opts.PacFile),
 		factory:       proxyfactory.New(),
@@ -122,9 +121,10 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 		Reader:        reader,
 	}
 
-	application.startAvailabilityChecks()
+	app.startAvailabilityChecks()
 
-	return application
+	// FIXME - graceful handler; server 502 on error and keep going
+	log.Fatal(http.ListenAndServe(app.opts.ListenAddr, app))
 }
 
 func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -133,10 +133,11 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		"url":    r.URL.String(),
 	}).Debug("Processing HTTP request")
 
-	if r.URL.Path == "/pac" {
-		fmt.Fprintf(w, `function FindProxyForURL(url, host) { return "PROXY %s"; }`, app.listenAddr)
-		return
-	}
+	// FIXME: We want to be able to serve some stats / tools from here
+	//if !r.URL.IsAbs() {
+	//	fmt.Fprintf(w, `function FindProxyForURL(url, host) { return "PROXY %s"; }`, app.listenAddr)
+	//	return
+	//}
 
 	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
 

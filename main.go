@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 
 	"github.com/Sirupsen/logrus"
@@ -47,6 +45,5 @@ func main() {
 
 	opts.PingCheckHost = url.Host
 
-	app := NewPacYakApp(opts)
-	log.Fatal(http.ListenAndServe(opts.ListenAddr, app))
+	Run(opts)
 }
