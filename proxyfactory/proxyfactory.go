@@ -116,8 +116,6 @@ func (pf *ProxyFactory) FromPacResponse(response string) *goproxy.ProxyHttpServe
 			continue
 		}
 
-		pf.Logger.WithFields(log.Fields{"proxy": proxyStr}).Info("Using proxy")
-
 		return proxy
 	}
 

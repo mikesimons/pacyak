@@ -16,15 +16,13 @@ type PacSandbox struct {
 	vm          *otto.Otto
 	cache       *ttlcache.Cache // TODO rename
 	resultCache *ttlcache.Cache
-	Logger      *log.Logger
 }
 
 // New is the constructor for PacSandbox
 func New(pac string) *PacSandbox {
 	sandbox := &PacSandbox{
-		pac:    pac,
-		vm:     otto.New(),
-		Logger: log.New(),
+		pac: pac,
+		vm:  otto.New(),
 	}
 
 	sandbox.Reset()
@@ -40,7 +38,7 @@ func (p *PacSandbox) ProxyFor(u string) (string, error) {
 
 	key := fmt.Sprintf("%s-%s-%s-result", parsedURL.Scheme, parsedURL.Host, parsedURL.Port)
 	if val, ok := p.resultCache.Get(key); ok {
-		p.Logger.WithFields(log.Fields{"key": key}).Info("PacSandbox result cache hit")
+		log.WithFields(log.Fields{"key": key}).Debug("PacSandbox result cache hit")
 		return val, nil
 	}
 
@@ -58,6 +56,8 @@ func (p *PacSandbox) ProxyFor(u string) (string, error) {
 	if err == nil {
 		p.resultCache.Set(key, result)
 	}
+
+	log.WithFields(log.Fields{"result": result, "url": u}).Debug("PAC result")
 
 	return result, err
 }

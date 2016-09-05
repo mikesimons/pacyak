@@ -42,13 +42,12 @@ type PacYakApplication struct {
 	factory       *proxyfactory.ProxyFactory
 	sandbox       pacInterpreter
 	listenAddr    string
-	Logger        *log.Logger
 	Reader        *readly.Reader
 }
 
 func (app *PacYakApplication) switchToDirect() {
 	if app.sandbox != app.directSandbox {
-		app.Logger.Info("PAC availability check failed; switching to direct")
+		log.Info("PAC availability check failed; switching to direct")
 		app.sandbox = app.directSandbox
 		app.sandbox.Reset()
 	}
@@ -58,11 +57,10 @@ func (app *PacYakApplication) switchToPac() {
 	if app.sandbox == app.directSandbox {
 		pac, err := app.Reader.Read(app.pacFile.Input)
 		if err != nil {
-			app.Logger.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
+			log.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
 		} else {
-			app.Logger.Info("PAC availability check passed; switching from direct")
+			log.Info("PAC availability check passed; switching from direct")
 			sandbox := pacsandbox.New(pac)
-			sandbox.Logger = app.Logger
 			app.sandbox = sandbox
 		}
 	}
@@ -70,7 +68,7 @@ func (app *PacYakApplication) switchToPac() {
 
 func (app *PacYakApplication) handlePacAvailability() {
 	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
-	app.Logger.WithFields(log.Fields{"available": available}).Info("PAC availability check")
+	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
 
 	if !available {
 		app.switchToDirect()
@@ -90,7 +88,6 @@ func (app *PacYakApplication) startAvailabilityChecks() {
 
 // NewPacYakApp will create a new PacYakApplication instance
 func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
-	logger := log.New()
 	log.SetLevel(opts.LogLevel)
 
 	// We need to explicitly set HTTP client to prevent it trying to use ENV vars for proxy
@@ -115,10 +112,8 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 		sandbox:       &directPac{},
 		directSandbox: &directPac{},
 		listenAddr:    opts.ListenAddr,
-		Logger:        logger,
 		Reader:        reader,
 	}
-
 
 	application.startAvailabilityChecks()
 
@@ -126,10 +121,10 @@ func NewPacYakApp(opts *PacYakOpts) *PacYakApplication {
 }
 
 func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	app.Logger.WithFields(log.Fields{
+	log.WithFields(log.Fields{
 		"method": r.Method,
 		"url":    r.URL.String(),
-	}).Info("Processing HTTP request")
+	}).Debug("Processing HTTP request")
 
 	if r.URL.Path == "/pac" {
 		fmt.Fprintf(w, `function FindProxyForURL(url, host) { return "PROXY %s"; }`, app.listenAddr)
@@ -139,9 +134,9 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
 
 	if err != nil {
-		app.Logger.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")
+		log.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")
 	} else {
-		app.Logger.WithFields(log.Fields{"response": pacResponse}).Info("PAC result")
+		log.WithFields(log.Fields{"response": pacResponse}).Debug("PAC result")
 	}
 
 	proxy := app.factory.FromPacResponse(pacResponse)
