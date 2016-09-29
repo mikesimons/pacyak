@@ -144,6 +144,7 @@ func (app *PacYakApplication) switchToPac() {
 			log.Info("PAC availability check passed; switching from direct")
 			sandbox := pacsandbox.New(pac)
 			app.sandbox = sandbox
+			app.sandbox.Reset()
 		}
 	}
 }
