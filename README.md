@@ -1,4 +1,5 @@
-# PacYak
+# PacYak [![Build Status](https://travis-ci.org/mikesimons/pacyak.svg?branch=master)](https://travis-ci.org/mikesimons/pacyak)
+
  > For the unfortunate souls stuck behind corporate proxies
 
 PacYak is a local proxy to assist developers behind corporate firewalls.
