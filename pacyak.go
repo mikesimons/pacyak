@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
-	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -14,6 +13,9 @@ import (
 	"github.com/mikesimons/pacyak/proxyfactory"
 	"github.com/mikesimons/readly"
 )
+
+const DIRECT_SANDBOX = 0
+const PROXY_SANDBOX = 1
 
 // PacYakOpts holds runtime config options for PacYakApplication
 type PacYakOpts struct {
@@ -39,16 +41,14 @@ func (p *directPac) Reset()                            {}
 
 // PacYakApplication holds all application state
 type PacYakApplication struct {
-	opts          *PacYakOpts
-	pacFile       *earl.URL
-	directSandbox pacInterpreter
-	factory       *proxyfactory.ProxyFactory
-	sandbox       pacInterpreter
-	listenAddr    string
-	interfaceMap  map[string]string
-	checkMutex    *sync.Mutex
-	sandboxMutex  *sync.Mutex
-	Reader        *readly.Reader
+	opts         *PacYakOpts
+	pacFile      *earl.URL
+	sandboxIndex int
+	sandboxes    []pacInterpreter
+	factory      *proxyfactory.ProxyFactory
+	listenAddr   string
+	interfaceMap map[string]string
+	Reader       *readly.Reader
 }
 
 // Run is the entry point for pacyak. It will initialize pacyak and start listening.
@@ -78,14 +78,13 @@ func Run(opts *PacYakOpts) {
 	}
 
 	app := &PacYakApplication{
-		opts:          opts,
-		pacFile:       earl.Parse(opts.PacFile),
-		factory:       proxyfactory.New(),
-		sandbox:       &directPac{},
-		directSandbox: &directPac{},
-		listenAddr:    opts.ListenAddr,
-		checkMutex:    &sync.Mutex{},
-		Reader:        reader,
+		opts:         opts,
+		pacFile:      earl.Parse(opts.PacFile),
+		factory:      proxyfactory.New(),
+		sandboxIndex: DIRECT_SANDBOX,
+		sandboxes:    []pacInterpreter{&directPac{}, &directPac{}},
+		listenAddr:   opts.ListenAddr,
+		Reader:       reader,
 	}
 
 	go app.monitorPingAvailability()
@@ -108,9 +107,7 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	//	return
 	//}
 
-	app.checkMutex.Lock()
-	pacResponse, err := app.sandbox.ProxyFor(r.URL.String())
-	app.checkMutex.Unlock()
+	pacResponse, err := app.activeSandbox().ProxyFor(r.URL.String())
 
 	if err != nil {
 		log.WithFields(log.Fields{"response": pacResponse, "sandbox_error": err, "url": r.URL.String()}).Error("Sandbox error!")
@@ -126,25 +123,23 @@ func (app *PacYakApplication) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 // switchToDirect switches the pac sandbox to the dummy "DIRECT" implementation
 // We do this when our ping check fails (indicating a proxy may no longer be required)
 func (app *PacYakApplication) switchToDirect() {
-	if app.sandbox != app.directSandbox {
+	if app.sandboxIndex != DIRECT_SANDBOX {
 		log.Info("PAC availability check failed; switching to direct")
-		app.sandbox = app.directSandbox
-		app.sandbox.Reset()
+		app.setSandbox(DIRECT_SANDBOX)
 	}
 }
 
 // switchToPac switches the pac sandbox to the JS implementation (using the PAC file specified on the CLI)
 // We do this when our ping check passes (indicating we're in an env that requires a proxy)
 func (app *PacYakApplication) switchToPac() {
-	if app.sandbox == app.directSandbox {
+	if app.sandboxIndex == DIRECT_SANDBOX {
 		pac, err := app.Reader.Read(app.pacFile.Input)
 		if err != nil {
 			log.WithFields(log.Fields{"error": err}).Error("PAC availability check passed but was unable to fetch PAC")
 		} else {
 			log.Info("PAC availability check passed; switching from direct")
-			sandbox := pacsandbox.New(pac)
-			app.sandbox = sandbox
-			app.sandbox.Reset()
+			app.sandboxes[PROXY_SANDBOX] = pacsandbox.New(pac)
+			app.setSandbox(PROXY_SANDBOX)
 		}
 	}
 }
@@ -153,9 +148,6 @@ func (app *PacYakApplication) switchToPac() {
 // This may be called from multiple go routines so we wrap it in a mutex to avoid racing
 // Tried this with channels once but CPU usage blew up! Probably PEBKAC
 func (app *PacYakApplication) handlePacAvailability() {
-	app.checkMutex.Lock()
-	defer func() { app.checkMutex.Unlock() }()
-
 	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
 	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
 
@@ -209,4 +201,13 @@ func (app *PacYakApplication) monitorNetworkInterfaces() {
 	for _ = range time.Tick(5 * time.Second) {
 		app.checkNetworkInterfaces()
 	}
+}
+
+func (app *PacYakApplication) activeSandbox() pacInterpreter {
+	return app.sandboxes[app.sandboxIndex]
+}
+
+func (app *PacYakApplication) setSandbox(index int) {
+	app.sandboxes[index].Reset()
+	app.sandboxIndex = index
 }
