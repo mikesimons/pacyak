@@ -1,4 +1,4 @@
-version = 1.0
+version=$(shell git describe --all | sed -e's/.*\///g')
 all: pacyak-$(version)-linux-amd64 pacyak-$(version)-darwin-amd64 pacyak-$(version)-windows-amd64
 
 pacyak-$(version)-linux-amd64:
