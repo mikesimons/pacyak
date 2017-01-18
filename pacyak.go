@@ -148,8 +148,18 @@ func (app *PacYakApplication) switchToPac() {
 // This may be called from multiple go routines so we wrap it in a mutex to avoid racing
 // Tried this with channels once but CPU usage blew up! Probably PEBKAC
 func (app *PacYakApplication) handlePacAvailability() {
-	available := exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
-	log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
+	available := false
+	retries := 0
+	for ; retries < 2; retries++ {
+		available = exec.Command("ping", "-w", "1", app.opts.PingCheckHost).Run() == nil
+		log.WithFields(log.Fields{"available": available}).Info("PAC availability check")
+
+		if !available {
+			time.Sleep(time.Second * 5)
+		} else {
+			break
+		}
+	}
 
 	if !available {
 		app.switchToDirect()
