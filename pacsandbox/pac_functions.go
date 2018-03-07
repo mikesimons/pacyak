@@ -57,6 +57,13 @@ func (p *PacSandbox) initPacFunctions() {
 			p.isPlainHostName(args[0]),
 		)
 	})
+
+	p.vm.Set("localHostOrDomainIs", func(call otto.FunctionCall) otto.Value {
+		args := p.ottoStringArgs(call, 2, "localHostOrDomainIs")
+		return p.ottoRetValue(
+			p.localHostOrDomainIs(args[0], args[1]),
+		)
+	})
 }
 
 func (p *PacSandbox) dnsDomainIs(host string, domain string) (bool, error) {
@@ -108,4 +115,8 @@ func (p *PacSandbox) isInNet(ipStr string, ipRangeStr string, ipMaskStr string) 
 
 func (p *PacSandbox) isPlainHostName(host string) (bool, error) {
 	return strings.Count(host, ".") == 0, nil
+}
+
+func (p *PacSandbox) localHostOrDomainIs(host string, domain string) (bool, error) {
+	return strings.Compare(host, domain) == 0, nil
 }

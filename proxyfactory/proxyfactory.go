@@ -6,7 +6,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/mikesimons/pacyak/proxy"
+	"../../pacyak/proxy"
 )
 
 // ProxyFactory holds all state for the proxy factory
@@ -25,10 +25,10 @@ func New() *ProxyFactory {
 	}
 
 	go func() {
-		for _ = range time.Tick(30 * time.Second) {
+		for _ = range time.Tick(30 * time.Minute) {
 			pf.lock.Lock()
-			for key, proxy := range pf.proxies {
-				pf.availability[key] = proxy.Available()
+			for key, proxy2 := range pf.proxies {
+				pf.availability[key] = proxy2.Available()
 
 				log.WithFields(log.Fields{
 					"proxy":     key,
@@ -63,9 +63,12 @@ func (pf *ProxyFactory) Proxy(handle string) *proxy.Proxy {
 
 	pf.lock.Lock()
 	if _, ok := pf.proxies[handle]; !ok {
-		proxy := proxy.New(handle)
-		pf.availability[handle] = proxy.Available()
-		pf.proxies[handle] = proxy
+		log.WithFields(log.Fields{
+			"proxy":     handle,
+		}).Debug("Creating new proxy for handle")
+		newProxy := proxy.New(handle)
+		pf.availability[handle] = newProxy.Available()
+		pf.proxies[handle] = newProxy
 	}
 	ret = pf.proxies[handle]
 	pf.lock.Unlock()
@@ -83,13 +86,13 @@ func (pf *ProxyFactory) FromPacResponse(response string) *proxy.Proxy {
 	response = strings.Replace(response, " ", "", -1)
 	proxies := strings.Split(response, ";")
 	for _, proxyStr := range proxies {
-		proxy := pf.Proxy(proxyStr)
+		proxy2 := pf.Proxy(proxyStr)
 
 		if !pf.available(proxyStr) {
 			continue
 		}
 
-		return proxy
+		return proxy2
 	}
 
 	return pf.Proxy("direct")

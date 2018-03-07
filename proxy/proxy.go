@@ -13,6 +13,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/mikesimons/earl"
+	"strings"
 )
 
 // Proxy is a simple proxy implementation
@@ -81,7 +82,7 @@ func New(proxyURLString string) *Proxy {
 		},
 	}
 
-	if proxyURLString == "direct" {
+	if strings.EqualFold(proxyURLString, "direct") {
 		proxy.Tr.Proxy = func(req *http.Request) (*url.URL, error) { return nil, nil }
 		proxy.Available = func() bool { return true }
 		proxy.ConnectDial = nil
