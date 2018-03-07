@@ -9,8 +9,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/mikesimons/earl"
-	"github.com/mikesimons/pacyak/pacsandbox"
-	"github.com/mikesimons/pacyak/proxyfactory"
+	"../pacyak/pacsandbox"
+	"../pacyak/proxyfactory"
 	"github.com/mikesimons/readly"
 )
 
@@ -171,7 +171,7 @@ func (app *PacYakApplication) handlePacAvailability() {
 // monitorPingAvailability is a wrapper for handlePacAvailability invoking it every 30 seconds
 func (app *PacYakApplication) monitorPingAvailability() {
 	app.handlePacAvailability()
-	for _ = range time.Tick(30 * time.Second) {
+	for _ = range time.Tick(30 * time.Minute) {
 		app.handlePacAvailability()
 	}
 }
@@ -208,7 +208,7 @@ func (app *PacYakApplication) checkNetworkInterfaces() {
 // monitorNetworkInterfaces is a wrapper for checkNetworkInterfaces invoking it every 5 seconds
 func (app *PacYakApplication) monitorNetworkInterfaces() {
 	app.interfaceMap = makeInterfaceMap()
-	for _ = range time.Tick(5 * time.Second) {
+	for _ = range time.Tick(30 * time.Minute) {
 		app.checkNetworkInterfaces()
 	}
 }

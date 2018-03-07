@@ -1,7 +1,7 @@
 package pacsandbox_test
 
 import (
-	. "github.com/mikesimons/pacyak/pacsandbox"
+	. "../../pacyak/pacsandbox"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

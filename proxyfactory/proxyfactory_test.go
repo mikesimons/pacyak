@@ -1,7 +1,7 @@
 package proxyfactory_test
 
 import (
-	. "github.com/mikesimons/pacyak/proxyfactory"
+	. "../../pacyak/proxyfactory"
 
 	"net"
 	"net/http"
